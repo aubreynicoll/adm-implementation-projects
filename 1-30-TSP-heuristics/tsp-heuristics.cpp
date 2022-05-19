@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -29,6 +30,11 @@ struct point {
     return x == other.x && y == other.y;
   }
 
+  friend ostream &operator<<(ostream &out, const point &p) {
+    out << p.x << ", " << p.y;
+    return out;
+  }
+
   size_t operator()(const point &point) const noexcept {
     union {
       int a[2];
@@ -40,9 +46,11 @@ struct point {
   }
 };
 
+typedef unordered_map<point, unordered_set<point, point>, point> shitty_graph;
+
 unordered_set<point, point> mock_data() {
   int min_points = 3;
-  int max_points = 10;
+  int max_points = 3;
   int range = max_points - min_points;
 
   int max_x = 10;
@@ -71,13 +79,40 @@ double distance(point a, point b) {
   return sqrt(pow(xDiff, 2.0) + pow(yDiff, 2.0));
 }
 
+bool is_connected(const shitty_graph &g, const point &a, const point &b) {
+  queue<point> q;
+  unordered_set<point, point> visited;
+
+  q.push(a);
+  while (q.size()) {
+    point p = q.front();
+
+    if (p == b) return true;
+
+    visited.insert(p);
+
+    for (point connected : g.at(p)) {
+      if (!visited.count(connected)) q.push(connected);
+    }
+
+    q.pop();
+  }
+
+  return false;
+}
+
 double nearest_neighbor(unordered_set<point, point> points) {
   if (points.size() < 2) return 0.0;
 
+  size_t starting_size = points.size();
   point starting_point{0, 0};
   double total_distance = 0.0;
 
   point current_point = starting_point;
+  point first_choice;
+
+  cout << current_point << endl;
+
   while (points.size()) {
     double shortest_distance = INFINITY;
     point nearest_neighbor;
@@ -91,11 +126,25 @@ double nearest_neighbor(unordered_set<point, point> points) {
       }
     }
 
+    if (points.size() == starting_size) {
+      first_choice = nearest_neighbor;
+    }
+
     points.erase(nearest_neighbor);
     total_distance += shortest_distance;
     current_point = nearest_neighbor;
+
+    cout << current_point << endl;
   }
+
+  total_distance += distance(current_point, first_choice);
+  current_point = first_choice;
+
+  cout << current_point << endl;
+
   total_distance += distance(current_point, starting_point);
+
+  cout << point{0, 0} << endl;
 
   return total_distance;
 }
@@ -108,12 +157,15 @@ double closest_pair(unordered_set<point, point> points) {
   point starting_point{0, 0};
   double total_distance = 0.0;
 
-  unordered_map<point, unordered_set<point, point>, point> connected;
+  shitty_graph graph;
   for (point p : points) {
-    connected.insert({p, {}});
+    graph.insert({p, {}});
   }
 
   point current_point = starting_point;
+
+  cout << current_point << endl;
+
   size_t n = points.size();
   for (size_t i = 0; i < n; i++) {
     double shortest_distance = INFINITY;
@@ -122,7 +174,9 @@ double closest_pair(unordered_set<point, point> points) {
 
     for (point p1 : points) {
       for (point p2 : points) {
-        if (p1 == p2 || connected.at(p1).count(p2)) {
+        if (p1 == p2 || graph.at(p1).size() == max_connections ||
+            graph.at(p2).size() == max_connections ||
+            (is_connected(graph, p1, p2) && i != n - 1)) {
           continue;
         }
 
@@ -143,14 +197,20 @@ double closest_pair(unordered_set<point, point> points) {
     total_distance += distance(current_point, next_point);
     current_point = next_point;
 
+    cout << current_point << endl;
+
     next_point = current_point == closest_pairA ? closest_pairB : closest_pairA;
     total_distance += distance(current_point, next_point);
     current_point = next_point;
 
-    connected.at(closest_pairA).insert(closest_pairB);
-    connected.at(closest_pairB).insert(closest_pairA);
+    cout << current_point << endl;
+
+    graph.at(closest_pairA).insert(closest_pairB);
+    graph.at(closest_pairB).insert(closest_pairA);
   }
   total_distance += distance(current_point, starting_point);
+
+  cout << point{0, 0} << endl;
 
   return total_distance;
 }
@@ -160,11 +220,14 @@ int main() {
 
   unordered_set<point, point> points = mock_data();
 
+  cout << "POINTS:" << endl;
+  cout << "-----------------------------" << endl;
   for (point p : points) {
-    cout << p.x << ", " << p.y << endl;
+    cout << p << endl;
   }
-  cout << "nearest neighbor heuristic: " << nearest_neighbor(points) << endl;
-  cout << "closest pair heuristic: " << closest_pair(points) << endl;
+  cout << "nearest neighbor heuristic: " << endl
+       << nearest_neighbor(points) << endl;
+  cout << "closest pair heuristic: " << endl << closest_pair(points) << endl;
 
   return 0;
 }
